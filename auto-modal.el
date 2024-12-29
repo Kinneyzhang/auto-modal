@@ -31,6 +31,7 @@
 ;;; Code:
 
 (require 'auto-modal-vi-mode)
+(require 'auto-modal-region-mode)
 
 (defun major-mode-chain (mode)
   "A list of major modes which MODE is derived from."
@@ -273,7 +274,8 @@ when `auto-modal-mode' turns off."
         (add-hook 'post-command-hook 'auto-modal-post-command-function)
         (add-hook 'window-configuration-change-hook 'auto-modal-set-cursor))
     (suppress-key-mode -1)
-    (auto-modal-vi-mode -1)
+    (when auto-modal-vi-mode (auto-modal-vi-mode -1))
+    (when auto-modal-region-mode (auto-modal-region-mode -1))
     (auto-modal-unbind-all-keys)
     (remove-hook 'post-command-hook 'auto-modal-post-command-function)
     (remove-hook 'window-configuration-change-hook 'auto-modal-set-cursor)))

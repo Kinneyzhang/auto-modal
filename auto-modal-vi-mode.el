@@ -40,12 +40,12 @@
   :keymap (let ((map (make-sparse-keymap)))
             (bind-key (kbd "<escape>") 'auto-modal-vi-mode-toogle map)
             map)
-  (if auto-modal-mode
-      (if auto-modal-vi-mode
+  (if auto-modal-vi-mode
+      (if auto-modal-mode
           (auto-modal-vi-normal-mode)
-        (auto-modal-vi-insert-mode))
-    (auto-modal-vi-insert-mode)
-    (setq auto-modal-vi-mode nil)
-    (error "auto-modal-mode is not turned on!")))
+        (auto-modal-vi-insert-mode)
+        (setq auto-modal-vi-mode nil)
+        (error "auto-modal-mode is not turned on!"))
+    (auto-modal-vi-insert-mode)))
 
 (provide 'auto-modal-vi-mode)
