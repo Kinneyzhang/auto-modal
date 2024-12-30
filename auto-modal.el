@@ -122,7 +122,7 @@ condition is satisfied."
               (not (null bool)))
             (mapcar 'funcall (auto-modal-predicate-functions major-mode))))
 
-(defun auto-modal-set-cursor ()
+(defun auto-modal-set-wins-cursor ()
   "Set cursor type correctly in all windows when
 turning `auto-modal-mode' on and off."
   (interactive)
@@ -193,7 +193,10 @@ is not in `auto-modal-data'."
                (lambda ()
                  (interactive)
                  (if-let ((func-args (auto-modal-key-command ,key-name)))
-                     (apply func-args)
+                     (progn
+                       (if (commandp (car func-args))
+                           (call-interactively (car func-args))
+                         (apply func-args)))
                    (user-error "%s is undifined" ,key-name)))
                'suppress-key-mode-map)))
 
@@ -266,18 +269,18 @@ when `auto-modal-mode' turns off."
 (define-minor-mode auto-modal-mode
   "Minor mode for switching modal automatically."
   :global t
-  (auto-modal-set-cursor)
+  (auto-modal-set-wins-cursor)
   ;; FIXME: cannot work properbly after emacs startup
   (if auto-modal-mode
       (progn
         (auto-modal-bind-all-keys)
         (add-hook 'post-command-hook 'auto-modal-post-command-function)
-        (add-hook 'window-configuration-change-hook 'auto-modal-set-cursor))
+        (add-hook 'window-configuration-change-hook 'auto-modal-set-wins-cursor))
     (suppress-key-mode -1)
     (when auto-modal-vi-mode (auto-modal-vi-mode -1))
     (when auto-modal-region-mode (auto-modal-region-mode -1))
     (auto-modal-unbind-all-keys)
     (remove-hook 'post-command-hook 'auto-modal-post-command-function)
-    (remove-hook 'window-configuration-change-hook 'auto-modal-set-cursor)))
+    (remove-hook 'window-configuration-change-hook 'auto-modal-set-wins-cursor)))
 
 (provide 'auto-modal)
