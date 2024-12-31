@@ -12,7 +12,7 @@ Auto-modal 顾名思义被称为“自动模态切换”。当光标所在位置
 
 举个例子：
 
-```
+```emacs-lisp
 (auto-modal-bind-key "j" 'org-mode 'auto-modal-bolp 'dired-jump)
 (auto-modal-bind-key "j" 'emacs-lisp-mode 'auto-modal-before-parensp 'auto-modal-next-parens)
 (auto-modal-bind-key "j" 'emacs-lisp-mode 'auto-modal-bolp 'auto-modal-next-function)
@@ -85,7 +85,7 @@ auto-modal 是一个高度可定制化的模态自动切换系统，用户可能
 ## vi-mode
 将触发条件设为一个始终返回 t 的函数，auto-modal 便退化为了 vi 的主动模态切换，下面是使用 auto-modal 配置的一个简易的 vi-mode 实现。
 
-```
+```emacs-lisp
 (defvar auto-modal-vi-keybinds
   '(("i" auto-modal-vi-insert-mode)
     ("j" next-line)

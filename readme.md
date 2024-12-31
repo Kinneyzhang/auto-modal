@@ -12,7 +12,7 @@ The auto-modal function would be very limited if we could only define one or a f
 
 For example:
 
-```
+```emacs-lisp
 (auto-modal-bind-key “j” 'org-mode 'auto-modal-bolp 'dired-jump)
 (auto-modal-bind-key “j” 'emacs-lisp-mode 'auto-modal-before-parensp 'auto-modal-next-parens)
 (auto-modal-bind-key “j” 'emacs-lisp-mode 'auto-modal-bolp 'auto-modal-next-function)
@@ -88,7 +88,7 @@ I like to use the position of the cursor at the beginning of a line (excluding t
 ## vi-mode
 If the trigger condition is set to a function that always returns t, auto-modal degenerates into active mode switching for vi. The following is a simple vi-mode implementation using the auto-modal configuration.
 
-```
+```emacs-lisp
 (defvar auto-modal-vi-keybinds
   '(("i" auto-modal-vi-insert-mode)
     ("j" next-line)
