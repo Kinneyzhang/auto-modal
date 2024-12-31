@@ -1,4 +1,4 @@
-在 emacs 中，对于需要频繁使用的命令，我们倾向于将其绑定到快捷键，即按下几个组合按键便完成了一个复杂功能的调用。可以将任意的命令绑定到快捷键是 emacs 被认为灵活、高效的重要原因之一。emacs 中的快捷键的特点是需要使用前缀键，即 `C-c`、`C-x` 等，但这比起 vi 这种模态编辑中使用单字母按键，又显的不那么的“快捷”了。习惯了 vi 的模态切换方式的用户可能会在 emacs 中使用诸如 `evil-mode`、`meow` 等方案来延续这种使用习惯。我本人是不太喜欢“模态编辑”的，但又觉得单字母按键确实高效，于是便思考一种即能够使用上单字母快捷键，但又无需关心模态切换的方案，于是有了 auto-modal 这个 package。
+在 emacs 中，对于需要频繁使用的命令，我们倾向于将其绑定到快捷键，即按下几个组合按键便完成了一个复杂功能的调用。可以将任意的命令绑定到快捷键是 emacs 被认为灵活、高效的重要原因之一。emacs 中的快捷键的特点是需要使用前缀键，即 `C-c`、`C-x` 等，但这比起 vi 这种模态编辑中使用单字母按键，又显的不那么的“快捷”了。习惯了 vi 的模态切换方式的用户可能会在 emacs 中使用诸如 `evil-mode`、`meow` 等方案来延续这种使用习惯。我本人不用“模态编辑”，但又觉得单字母按键确实高效，于是便思考一种即能够使用上单字母快捷键，但又无需主动切换模态的方案，于是有了 auto-modal 这个 package。
 
 # Auto-modal 做了什么
 
@@ -24,22 +24,31 @@ Auto-modal 顾名思义被称为“自动模态切换”。当光标所在位置
 第三个绑定：在 emacs-lisp-mode 中，当满足 auto-modal-bolp 断言时，按 "j" 跳转到下一个函数
 第四个绑定：在所有的 major mode 中，当满足 auto-modal-bolp 断言时，按 "j" 跳转到下一行
 
+(以上示例中的函数只作为理解例子使用，未提供实际函数)
+
 值得注意的是，按键绑定可以随着 major mode 的继承而继承，而子 major mode 指定了同一按键、同一触发条件的函数时，会覆盖父 major mode 的绑定。上面的第三个绑定就覆盖了第四个的行为，如果没有其他的绑定，在所有非 emacs-lisp-mode 中，满足 auto-modal-bolp 断言的所有的按键 "j"，都会触发跳转到下一行。
 
-# 触发条件下需要输入字符如果处理
-虽然在触发位置输入字符被认为是 rare case，但也会存在需要输入的场景，此时就需要主动切换了插入模态了。使用内置命令 `auto-modal-enable-insert` 主动切换到插入模式，你可以将它绑定到一个单字母，比如我绑定到了空格键。
+控制模式下需要输入字符时如何处理?
+
+虽然在触发位置输入字符被认为是 rare case，但也会存在需要输入的场景，此时就需要主动切换了插入模态了。使用内置命令 `auto-modal-enable-insert` 主动切换到插入模式，你可以将它绑定到一个字母按键。
 
 # 我的配置
 auto-modal 是一个高度可定制化的模态自动切换系统，用户可能根据自己的需求，进行个性化的配置或发现更多有趣的用法。如果你还不清楚该如何使用，下面是目前我个人的配置，供大家参考。
 
 ## use-region-p
-```
+当选中 region 时，设置一些字母按键操作选中的文本或执行其他命令
+
+```emacs-lisp
 (auto-modal-bind-key "u" 'global 'use-region-p 'upcase-dwim)
 (auto-modal-bind-key "d" 'global 'use-region-p 'downcase-dwim)
 (auto-modal-bind-key "c" 'global 'use-region-p 'kill-ring-save)
+;; ......
 ```
+
 ## bolp
-```
+我喜欢将光标位于一行开头(排除空字符行的开头)这个位置作为触发模态自动切换的触发条件，除了它是输入字符的 rase case，移动光标到开头也是日常编辑中非常频繁的操作。
+
+```emacs-lisp
 (defun auto-modal-bolp ()
   (and (bolp) (not (looking-at "^$"))))
 
@@ -72,7 +81,10 @@ auto-modal 是一个高度可定制化的模态自动切换系统，用户可能
 (auto-modal-bind-key "<" 'global 'auto-modal-bolp 'backward-page)
 (auto-modal-bind-key ">" 'global 'auto-modal-bolp 'forward-page)
 ```
+
 ## vi-mode
+将触发条件设为一个始终返回 t 的函数，auto-modal 便退化为了 vi 的主动模态切换，下面是使用 auto-modal 配置的一个简易的 vi-mode 实现。
+
 ```
 (defvar auto-modal-vi-keybinds
   '(("i" auto-modal-vi-insert-mode)
@@ -114,3 +126,6 @@ auto-modal 是一个高度可定制化的模态自动切换系统，用户可能
       (auto-modal-vi-normal-mode)
     (auto-modal-vi-insert-mode)))
 ```
+
+## 其他
+还有一些其他的有用、有趣的用法，欢迎大家探索。比如将 lisp 系语言的左括号作为切换的触发点，便可以为S表达式的光标移动和表达式操作提供更灵活的操作方式...

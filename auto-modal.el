@@ -97,6 +97,10 @@ major mode."
   (when suppress-key-mode
     (suppress-key-mode -1)))
 
+(defun auto-modal-enable-insert ()
+  "Enable insert when in auto-modal control mode."
+  (setq auto-modal-enable-insert-p t))
+
 (defun auto-modal-switch-to-control ()
   "Switch to auto-modal control mode."
   (interactive)

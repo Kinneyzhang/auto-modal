@@ -27,9 +27,6 @@
               (looking-at "^$"))
     (auto-modal-previous-line)))
 
-(defun auto-modal-enable-insert ()
-  (setq auto-modal-enable-insert-p t))
-
 (auto-modal-bind-key "l" 'global 'auto-modal-bolp 'avy-goto-line)
 (auto-modal-bind-key "c" 'global 'auto-modal-bolp 'avy-goto-char-timer)
 (auto-modal-bind-key "j" 'global 'auto-modal-bolp 'auto-modal-next-line)
@@ -84,30 +81,30 @@
 
 ;;; sexp-mode
 
-(defun auto-modal-before-parensp ()
-  (looking-at "("))
+;; (defun auto-modal-before-parensp ()
+;;   (looking-at "("))
 
-(defun auto-modal-next-function ()
-  (when (save-excursion
-          (re-search-forward "^(defun.+" nil t))
-    (goto-char (match-beginning 0))))
+;; (defun auto-modal-next-function ()
+;;   (when (save-excursion
+;;           (re-search-forward "^(defun.+" nil t))
+;;     (goto-char (match-beginning 0))))
 
-(defun sexp-into ()
-  "Go to the inner sexp."
-  (when (re-search-forward "(" nil t)
-    ))
+;; (defun sexp-into ()
+;;   "Go to the inner sexp."
+;;   (when (re-search-forward "(" nil t)
+;;     ))
 
-(defun sexp-out ()
-  "Go outside of current sexp.")
+;; (defun sexp-out ()
+;;   "Go outside of current sexp.")
 
-(defun sexp-next ()
-  "Go to the next sexp in the same level."
-  )
+;; (defun sexp-next ()
+;;   "Go to the next sexp in the same level."
+;;   )
 
-(defun sexp-previous ()
-  "Go to the previous sexp in the same level.")
+;; (defun sexp-previous ()
+;;   "Go to the previous sexp in the same level.")
 
-(defun sexp-end ()
-  "Go to the end of a sexp.")
+;; (defun sexp-end ()
+;;   "Go to the end of a sexp.")
 
 (provide 'auto-modal-config)
