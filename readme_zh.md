@@ -19,10 +19,10 @@ Auto-modal 顾名思义被称为“自动模态切换”。当光标所在位置
 (auto-modal-bind-key "j" 'fundamental-mode 'auto-modal-bolp 'auto-modal-next-line)
 ```
 
-第一个绑定：在 org-mode 中，当满足 auto-modal-bolp 断言时，按 "j" 跳转到当前的 dired 目录
-第二个绑定：在 emacs-lisp-mode 中，当满足 auto-modal-before-parensp 断言时，按 "j" 跳转到下一个括号的开头
-第三个绑定：在 emacs-lisp-mode 中，当满足 auto-modal-bolp 断言时，按 "j" 跳转到下一个函数
-第四个绑定：在所有的 major mode 中，当满足 auto-modal-bolp 断言时，按 "j" 跳转到下一行
+- 第一个绑定：在 org-mode 中，当满足 auto-modal-bolp 断言时，按 "j" 跳转到当前的 dired 目录
+- 第二个绑定：在 emacs-lisp-mode 中，当满足 auto-modal-before-parensp 断言时，按 "j" 跳转到下一个括号的开头
+- 第三个绑定：在 emacs-lisp-mode 中，当满足 auto-modal-bolp 断言时，按 "j" 跳转到下一个函数
+- 第四个绑定：在所有的 major mode 中，当满足 auto-modal-bolp 断言时，按 "j" 跳转到下一行
 
 (以上示例中的函数只作为理解例子使用，未提供实际函数)
 

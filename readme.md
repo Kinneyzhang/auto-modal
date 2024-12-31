@@ -19,13 +19,10 @@ For example:
 (auto-modal-bind-key “j” 'fundamental-mode 'auto-modal-bolp 'auto-modal-next-line)
 ```
 
-First binding: in org-mode, when the auto-modal-bolp assertion is satisfied, pressing “j” jumps to the current dired directory
-
-Second binding: in emacs-lisp-mode, when the auto-modal-before-parensp assertion is satisfied, pressing “j” jumps to the beginning of the next parenthesis
-
-Third binding: in emacs-lisp-mode, when the auto-modal-bolp assertion is satisfied, pressing “j” jumps to the beginning of the next function
-
-Fourth binding: in all major modes, when the auto-modal-bolp assertion is satisfied, pressing “j” jumps to the next line
+- First binding: in org-mode, when the auto-modal-bolp assertion is satisfied, pressing “j” jumps to the current dired directory
+- Second binding: in emacs-lisp-mode, when the auto-modal-before-parensp assertion is satisfied, pressing “j” jumps to the beginning of the next parenthesis
+- Third binding: in emacs-lisp-mode, when the auto-modal-bolp assertion is satisfied, pressing “j” jumps to the beginning of the next function
+- Fourth binding: in all major modes, when the auto-modal-bolp assertion is satisfied, pressing “j” jumps to the next line
 
 (The functions in the above examples are used only as examples for understanding and do not provide actual functions.)
 
