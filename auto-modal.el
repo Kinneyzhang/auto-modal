@@ -30,9 +30,6 @@
 
 ;;; Code:
 
-(require 'auto-modal-vi-mode)
-(require 'auto-modal-region-mode)
-
 (defun major-mode-chain (mode)
   "A list of major modes which MODE is derived from."
   (let* ((chain (list mode))
@@ -82,6 +79,12 @@ major mode."
 (defvar auto-modal-data nil
   "A list of `auto-modal-keybind' data.")
 
+(defvar auto-modal-turn-on-hook nil
+  "Hook run when `auto-modal-mode' is turned on.")
+
+(defvar auto-modal-turn-off-hook nil
+  "Hook run when `auto-modal-mode' is turned off.")
+
 (cl-defstruct auto-modal-keybind
   "Core structure of auto-modal keybinding."
   key-name mode predicate function args)
@@ -120,18 +123,29 @@ current major mode. If any of them return true, the trigger
 condition is satisfied."
   (seq-some (lambda (bool)
               (not (null bool)))
-            (mapcar 'funcall (auto-modal-predicate-functions major-mode))))
+            (mapcar (lambda (func)
+                      (or (eq t func) (funcall func)))
+                    (auto-modal-predicate-functions major-mode))))
 
-(defun auto-modal-set-wins-cursor ()
+(defun auto-modal-set-cursor ()
+  (if (and auto-modal-mode
+           (auto-modal-is-triggerp))
+      (setq-local cursor-type auto-modal-control-cursor-type)
+    (setq-local cursor-type auto-modal-insert-cursor-type)))
+
+(defun auto-modal-set-cursor-when-idle ()
+  "Set cursor type correctly in current buffer
+after idle time."
+  (interactive)
+  (run-with-idle-timer 0.1 nil 'auto-modal-set-cursor))
+
+(defun auto-modal-set-cursor-all-wins ()
   "Set cursor type correctly in all windows when
 turning `auto-modal-mode' on and off."
   (interactive)
   (dolist (win (window-list))
     (with-current-buffer (window-buffer win)
-      (if (and auto-modal-mode
-               (auto-modal-is-triggerp))
-          (setq-local cursor-type auto-modal-control-cursor-type)
-        (setq-local cursor-type auto-modal-insert-cursor-type)))))
+      (auto-modal-set-cursor))))
 
 (defun auto-modal-post-command-function ()
   "Automatically switch modal after executing each command."
@@ -155,7 +169,8 @@ turning `auto-modal-mode' on and off."
                 (lambda (keybind)
                   (and (string= key-name
                                 (auto-modal-keybind-key-name keybind))
-                       (funcall (auto-modal-keybind-predicate keybind))))
+                       (or (eq t (auto-modal-keybind-predicate keybind))
+                           (funcall (auto-modal-keybind-predicate keybind)))))
                 auto-modal-data))
               (mode-levels
                (seq-map (lambda (el)
@@ -182,7 +197,7 @@ turning `auto-modal-mode' on and off."
     (error "%S is not a major mode!" mode))
   (unless (functionp function)
     (error "%S is not a function!" function))
-  (unless (functionp predicate)
+  (unless (or (functionp predicate) (eq predicate t))
     (error "%S is not a predicate function!" predicate)))
 
 (defmacro auto-modal-key-bind (key-name)
@@ -269,18 +284,21 @@ when `auto-modal-mode' turns off."
 (define-minor-mode auto-modal-mode
   "Minor mode for switching modal automatically."
   :global t
-  (auto-modal-set-wins-cursor)
+  (auto-modal-set-cursor-all-wins)
   ;; FIXME: cannot work properbly after emacs startup
   (if auto-modal-mode
       (progn
         (auto-modal-bind-all-keys)
         (add-hook 'post-command-hook 'auto-modal-post-command-function)
-        (add-hook 'window-configuration-change-hook 'auto-modal-set-wins-cursor))
+        ;; delay update cursor type in some cases
+        (add-hook 'post-command-hook 'auto-modal-set-cursor-when-idle)
+        (add-hook 'window-configuration-change-hook 'auto-modal-set-cursor-all-wins)
+        (run-hooks 'auto-modal-turn-on-hook))
     (suppress-key-mode -1)
-    (when auto-modal-vi-mode (auto-modal-vi-mode -1))
-    (when auto-modal-region-mode (auto-modal-region-mode -1))
     (auto-modal-unbind-all-keys)
     (remove-hook 'post-command-hook 'auto-modal-post-command-function)
-    (remove-hook 'window-configuration-change-hook 'auto-modal-set-wins-cursor)))
+    (remove-hook 'post-command-hook 'auto-modal-set-cursor-when-idle)
+    (remove-hook 'window-configuration-change-hook 'auto-modal-set-cursor-all-wins)
+    (run-hooks 'auto-modal-turn-off-hook)))
 
 (provide 'auto-modal)

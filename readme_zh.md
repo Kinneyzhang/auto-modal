@@ -26,14 +26,91 @@ Auto-modal 顾名思义被称为“自动模态切换”。当光标所在位置
 
 值得注意的是，按键绑定可以随着 major mode 的继承而继承，而子 major mode 指定了同一按键、同一触发条件的函数时，会覆盖父 major mode 的绑定。上面的第三个绑定就覆盖了第四个的行为，如果没有其他的绑定，在所有非 emacs-lisp-mode 中，满足 auto-modal-bolp 断言的所有的按键 "j"，都会触发跳转到下一行。
 
-# 配置的细节解释
-
-
 # 触发条件下需要输入字符如果处理
 虽然在触发位置输入字符被认为是 rare case，但也会存在需要输入的场景，此时就需要主动切换了插入模态了。使用内置命令 `auto-modal-enable-insert` 主动切换到插入模式，你可以将它绑定到一个单字母，比如我绑定到了空格键。
 
 # 我的配置
 auto-modal 是一个高度可定制化的模态自动切换系统，用户可能根据自己的需求，进行个性化的配置或发现更多有趣的用法。如果你还不清楚该如何使用，下面是目前我个人的配置，供大家参考。
 
+## use-region-p
 ```
+(auto-modal-bind-key "u" 'global 'use-region-p 'upcase-dwim)
+(auto-modal-bind-key "d" 'global 'use-region-p 'downcase-dwim)
+(auto-modal-bind-key "c" 'global 'use-region-p 'kill-ring-save)
+```
+## bolp
+```
+(defun auto-modal-bolp ()
+  (and (bolp) (not (looking-at "^$"))))
+
+(defun auto-modal-next-line ()
+  (interactive)
+  (forward-line 1)
+  (goto-char (line-beginning-position))
+  (while (and (not (= (point) (point-max)))
+              (looking-at "^$"))
+    (auto-modal-next-line)))
+
+(defun auto-modal-previous-line ()
+  (interactive)
+  (forward-line -1)
+  (goto-char (line-beginning-position))
+  (while (and (not (= (point) (point-max)))
+              (looking-at "^$"))
+    (auto-modal-previous-line)))
+
+(defun auto-modal-enable-insert ()
+  (setq auto-modal-enable-insert-p t))
+
+(auto-modal-bind-key "l" 'global 'auto-modal-bolp 'avy-goto-line)
+(auto-modal-bind-key "c" 'global 'auto-modal-bolp 'avy-goto-char-timer)
+(auto-modal-bind-key "j" 'global 'auto-modal-bolp 'auto-modal-next-line)
+(auto-modal-bind-key "o" 'global 'auto-modal-bolp 'other-window 1)
+(auto-modal-bind-key "k" 'global 'auto-modal-bolp 'auto-modal-previous-line)
+(auto-modal-bind-key "SPC" 'global 'auto-modal-bolp 'auto-modal-enable-insert)
+(auto-modal-bind-key "f" 'global 'auto-modal-bolp 'counsel-find-file)
+(auto-modal-bind-key "<" 'global 'auto-modal-bolp 'backward-page)
+(auto-modal-bind-key ">" 'global 'auto-modal-bolp 'forward-page)
+```
+## vi-mode
+```
+(defvar auto-modal-vi-keybinds
+  '(("i" auto-modal-vi-insert-mode)
+    ("j" next-line)
+    ("k" previous-line)
+    ("h" backward-char)
+    ("l" forward-char)
+    ("w" forward-word)
+    ("b" backward-word)))
+
+(defun auto-modal-vi-pred () t)
+
+(defun auto-modal-vi-normal-mode ()
+  (dolist (keybind auto-modal-vi-keybinds)
+    (apply 'auto-modal-bind-key
+           (car keybind) 'global 'auto-modal-vi-pred (cdr keybind))))
+
+(defun auto-modal-vi-insert-mode ()
+  (auto-modal-unbind-with-predicate 'auto-modal-vi-pred))
+
+(defun auto-modal-vi-mode-toogle ()
+  (interactive)
+  (if auto-modal-vi-mode
+      (auto-modal-vi-insert-mode)
+    (auto-modal-vi-normal-mode)))
+
+(defvar auto-modal-vi-keymap
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "<escape>") 'auto-modal-vi-mode-toogle)
+    map))
+
+;;;###autoload
+(define-minor-mode auto-modal-vi-mode
+  "Auto-modal vi mode"
+  :global t
+  :keymap auto-modal-vi-keymap
+  (unless auto-modal-mode (auto-modal-mode 1))
+  (if auto-modal-vi-mode
+      (auto-modal-vi-normal-mode)
+    (auto-modal-vi-insert-mode)))
 ```
