@@ -47,6 +47,36 @@ major mode."
               (parents (member derived-mode modes)))
     (length parents)))
 
+(defvar background-mode-change-hook nil
+  "Normal hook that is run after the background of theme changed.")
+
+(defun background-mode-change (original-func &rest args)
+  "Advice functon when load a theme."
+  (let ((before-background-mode (frame-parameter nil 'background-mode))
+        after-background-mode)
+    (apply original-func args)
+    ;; set `auto-modal-default-cursor-color' of current new theme.
+    (setq auto-modal-default-cursor-color
+          (frame-parameter nil 'cursor-color))
+    (setq after-background-mode (frame-parameter nil 'background-mode))
+    (unless (eq before-background-mode after-background-mode)
+      (run-hooks 'background-mode-change-hook))))
+
+(defun background-mode-change-setup ()
+  "Add advice when load a theme and run `background-mode-change-hook'.
+in the advice function after the background-mode changed."
+  (when (package-installed-p 'counsel)
+    (advice-add #'counsel-load-theme :around #'background-mode-change))
+  (advice-add #'load-theme :around #'background-mode-change))
+
+(defun background-mode-change-unset ()
+  "Remove advice when load a theme and run `background-mode-change-hook'.
+in the advice function after the background-mode changed."
+  "When load a theme, run `background-mode-change-hook'."
+  (when (package-installed-p 'counsel)
+    (advice-remove #'counsel-load-theme #'background-mode-change))
+  (advice-remove #'load-theme #'background-mode-change))
+
 
 
 (defvar suppress-key-mode-map
@@ -67,11 +97,44 @@ major mode."
 
 
 
+(defun auto-modal-default-cursor-type ()
+  "Default cursor type of user's setting, it's
+the value of `setq-default'."
+  (default-value 'cursor-type))
+
+(defconst auto-modal-default-cursor-color (frame-parameter nil 'cursor-color)
+  "Default cursor color of current theme.
+Every time load a theme, reset it by
+`(frame-parameter nil 'cursor-color)'")
+
 (defcustom auto-modal-control-cursor-type 'box
-  "Type of cursor when in auto-modal control mode.")
+  "Type of cursor when in auto-modal control mode.
+When the value is 'default, use the default cursor type
+set by `setq-default'. Otherwise the cursor type is the
+same in `cursor-type'.")
 
 (defcustom auto-modal-insert-cursor-type 'bar
-  "Type of cursor when in auto-modal insert mode.")
+  "Type of cursor when in auto-modal insert mode.
+When the value is 'default, use the default cursor type
+set by `setq-default'.")
+
+(defcustom auto-modal-control-cursor-color nil
+  "Color of cursor when in auto-modal control mode.
+
+When the value is nil, use `auto-modal-default-cursor-type' by default.
+When the value is a face, use the foreground color of that face.
+When the value is a string, directly use the string as color.
+When the value is a cons cell, use the car of it in light theme and
+the cdr of it in dark theme.")
+
+(defcustom auto-modal-insert-cursor-color nil
+  "Color of cursor when in auto-modal insert mode.
+
+When the value is nil, use `auto-modal-default-cursor-type' by default.
+When the value is a face, use the foreground color of that face.
+When the value is a string, directly use the string as color.
+When the value is a cons cell, use the car of it in light theme and
+the cdr of it in dark theme.")
 
 (defvar-local auto-modal-enable-insert-p nil
   "A buffer local variable to enable to insert when in control mode.")
@@ -89,25 +152,86 @@ major mode."
   "Core structure of auto-modal keybinding."
   key-name mode predicate function args)
 
+(defun auto-modal-current-cursor-type ()
+  "Get current cursor type."
+  cursor-type)
+
+(defun auto-modal-current-cursor-color ()
+  "Get current cursor color."
+  (frame-parameter nil 'cursor-color))
+
+(defun auto-modal-should-cursor-type (type)
+  "Get cursor type should be, if TYPE is 'default,
+use `auto-modal-default-cursor-type', otherwise use TYPE."
+  (if (eq 'default type)
+      (auto-modal-default-cursor-type)
+    type))
+
+(defun auto-modal-should-cursor-color (color)
+  "Get cursor color it's currently should be.
+
+When COLOR is nil, use `auto-modal-default-cursor-type' by default.
+When COLOR is a face, use the foreground color of that face.
+When COLOR is a string, directly use the string as color.
+When COLOR is a cons cell, use the car of it in light theme and
+the cdr of it in dark theme."
+  (cond
+   ((null color) auto-modal-default-cursor-color)
+   ((facep color) (face-attribute color :foreground))
+   ((stringp color) color)
+   ((consp color)
+    (pcase (frame-parameter nil 'background-mode)
+      ('light (car color))
+      ('dark (cdr color))))
+   (_ (error "Invalid format of auto-modal cursor color: %S" color))))
+
+(defun auto-modal-set-control-cursor ()
+  "Set the type and color of cursor when in control mode."
+  ;; set cursor color
+  (let ((should-color (auto-modal-should-cursor-color
+                       auto-modal-control-cursor-color))
+        (current-color (auto-modal-current-cursor-color)))
+    (unless (eq current-color should-color)
+      (set-cursor-color should-color)))
+  ;; set cursor type
+  (let ((should-type (auto-modal-should-cursor-type
+                      auto-modal-control-cursor-type))
+        (current-type (auto-modal-current-cursor-type)))
+    (unless (eq current-type should-type)
+      (setq-local cursor-type should-type))))
+
+(defun auto-modal-set-insert-cursor ()
+  "Set the type and color of cursor when in insert mode."
+  ;; set cursor color
+  (let ((should-color (auto-modal-should-cursor-color
+                       auto-modal-insert-cursor-color))
+        (current-color (auto-modal-current-cursor-color)))
+    (unless (eq current-color should-color)
+      (set-cursor-color should-color)))
+  ;; set cursor type
+  (let ((should-type (auto-modal-should-cursor-type
+                      auto-modal-insert-cursor-type))
+        (current-type (auto-modal-current-cursor-type)))
+    (unless (eq current-type should-type)
+      (setq-local cursor-type should-type))))
+
 (defun auto-modal-switch-to-insert ()
   "Switch to auto-modal insert mode."
   (interactive)
-  (when (eq cursor-type auto-modal-control-cursor-type)
-    (setq-local cursor-type auto-modal-insert-cursor-type))
+  (auto-modal-set-insert-cursor)
   (when suppress-key-mode
     (suppress-key-mode -1)))
-
-(defun auto-modal-enable-insert ()
-  "Enable insert when in auto-modal control mode."
-  (setq auto-modal-enable-insert-p t))
 
 (defun auto-modal-switch-to-control ()
   "Switch to auto-modal control mode."
   (interactive)
-  (when (eq cursor-type auto-modal-insert-cursor-type)
-    (setq-local cursor-type auto-modal-control-cursor-type))
+  (auto-modal-set-control-cursor)
   (when (not suppress-key-mode)
     (suppress-key-mode 1)))
+
+(defun auto-modal-enable-insert ()
+  "Enable insert when in auto-modal control mode."
+  (setq auto-modal-enable-insert-p t))
 
 (defun auto-modal-predicate-functions (&optional mode)
   "Return all predicate functions that trigger modal switch
@@ -132,16 +256,11 @@ condition is satisfied."
                     (auto-modal-predicate-functions major-mode))))
 
 (defun auto-modal-set-cursor ()
+  "Set cursor independently."
   (if (and auto-modal-mode
            (auto-modal-is-triggerp))
-      (setq-local cursor-type auto-modal-control-cursor-type)
-    (setq-local cursor-type auto-modal-insert-cursor-type)))
-
-(defun auto-modal-set-cursor-when-idle ()
-  "Set cursor type correctly in current buffer
-after idle time."
-  (interactive)
-  (run-with-idle-timer 0.1 nil 'auto-modal-set-cursor))
+      (auto-modal-set-control-cursor)
+    (auto-modal-set-insert-cursor)))
 
 (defun auto-modal-set-cursor-all-wins ()
   "Set cursor type correctly in all windows when
@@ -294,15 +413,18 @@ when `auto-modal-mode' turns off."
       (progn
         (auto-modal-bind-all-keys)
         (add-hook 'post-command-hook 'auto-modal-post-command-function)
-        ;; delay update cursor type in some cases
-        (add-hook 'post-command-hook 'auto-modal-set-cursor-when-idle)
-        (add-hook 'window-configuration-change-hook 'auto-modal-set-cursor-all-wins)
-        (run-hooks 'auto-modal-turn-on-hook))
+        (add-hook 'window-configuration-change-hook
+                  'auto-modal-set-cursor-all-wins)
+        (run-hooks 'auto-modal-turn-on-hook)
+        (background-mode-change-setup))
+    (setq-local cursor-type (auto-modal-default-cursor-type))
+    (set-cursor-color auto-modal-default-cursor-color)
     (suppress-key-mode -1)
     (auto-modal-unbind-all-keys)
     (remove-hook 'post-command-hook 'auto-modal-post-command-function)
-    (remove-hook 'post-command-hook 'auto-modal-set-cursor-when-idle)
-    (remove-hook 'window-configuration-change-hook 'auto-modal-set-cursor-all-wins)
-    (run-hooks 'auto-modal-turn-off-hook)))
+    (remove-hook 'window-configuration-change-hook
+                 'auto-modal-set-cursor-all-wins)
+    (run-hooks 'auto-modal-turn-off-hook)
+    (background-mode-change-unset)))
 
 (provide 'auto-modal)
