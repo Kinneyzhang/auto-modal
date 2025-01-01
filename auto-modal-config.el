@@ -54,6 +54,7 @@ is the predicate function."
   '(("i" auto-modal-vi-insert-mode)
     ("j" next-line)
     ("k" previous-line)
+    ("z" forward-line 2)
     ("h" backward-char)
     ("l" forward-char)
     ("w" forward-word)

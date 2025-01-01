@@ -136,6 +136,12 @@ When the value is a string, directly use the string as color.
 When the value is a cons cell, use the car of it in light theme and
 the cdr of it in dark theme.")
 
+(defcustom auto-modal-log-max-number 40
+  "Max number of auto-modal key command log.")
+
+(defvar auto-modal-log-num 0
+  "Current number of auto-modal log.")
+
 (defvar-local auto-modal-enable-insert-p nil
   "A buffer local variable to enable to insert when in control mode.")
 
@@ -147,6 +153,12 @@ the cdr of it in dark theme.")
 
 (defvar auto-modal-turn-off-hook nil
   "Hook run when `auto-modal-mode' is turned off.")
+
+(defvar auto-modal-enable-log nil
+  "Whether to enable record key and command in message.")
+
+(defvar auto-modal-enable-keyhint nil
+  "Whether to enable show keyhint in minibuffer.")
 
 (cl-defstruct auto-modal-keybind
   "Core structure of auto-modal keybinding."
@@ -233,16 +245,37 @@ the cdr of it in dark theme."
   "Enable insert when in auto-modal control mode."
   (setq auto-modal-enable-insert-p t))
 
-(defun auto-modal-predicate-functions (&optional mode)
-  "Return all predicate functions that trigger modal switch
-for major mode MODE. If MODE is nil, default to major mode
-of current buffer."
-  (mapcar #'auto-modal-keybind-predicate
+(defun auto-modal-functions-data (&optional mode)
+  "A list of predicate, function, arg and key-name of MODE."
+  (mapcar (lambda (data)
+            (append
+             (list (auto-modal-keybind-key-name data))
+             (cons (auto-modal-keybind-predicate data)
+                   (append (list (auto-modal-keybind-function data))
+                           (auto-modal-keybind-args data)))))
           (seq-filter (lambda (cl-x)
                         (major-mode-derived-p
                          (auto-modal-keybind-mode cl-x)
                          (or mode major-mode)))
                       auto-modal-data)))
+
+(defun auto-modal-trigger-functions (&optional mode)
+  "Return all functions that could be triggered."
+  (mapcar (lambda (data)
+            (cons (car data) (cddr data)))
+          (seq-filter (lambda (data)
+                        (or (eq t (cadr data))
+                            (funcall (cadr data))))
+                      (auto-modal-functions-data mode))))
+
+(defun auto-modal-key-hint ()
+  (minibuffer-message
+   (mapconcat (lambda (data)
+                (format "%s → %S "
+                        (propertize (car data) 'face 'bold)
+                        (cadr data)))
+              (auto-modal-trigger-functions)
+              " ")))
 
 (defun auto-modal-is-triggerp ()
   "Determine whether the conditions for triggering the modal
@@ -253,7 +286,8 @@ condition is satisfied."
               (not (null bool)))
             (mapcar (lambda (func)
                       (or (eq t func) (funcall func)))
-                    (auto-modal-predicate-functions major-mode))))
+                    (mapcar #'cadr (auto-modal-functions-data
+                                    major-mode)))))
 
 (defun auto-modal-set-cursor ()
   "Set cursor independently."
@@ -270,6 +304,14 @@ turning `auto-modal-mode' on and off."
     (with-current-buffer (window-buffer win)
       (auto-modal-set-cursor))))
 
+(defvar auto-modal-pre-is-control-p nil
+  "Whether pre command is in control mode.")
+
+(defun auto-modal-pre-command-function ()
+  (if (auto-modal-is-triggerp)
+      (setq auto-modal-pre-is-control-p t)
+    (setq auto-modal-pre-is-control-p nil)))
+
 (defun auto-modal-post-command-function ()
   "Automatically switch modal after executing each command."
   (when (and auto-modal-mode
@@ -283,7 +325,11 @@ turning `auto-modal-mode' on and off."
       (when (or (not (auto-modal-is-triggerp))
                 auto-modal-enable-insert-p)
         (auto-modal-switch-to-insert)
-        (setq auto-modal-enable-insert-p nil)))))
+        (setq auto-modal-enable-insert-p nil)))
+    (when auto-modal-enable-keyhint
+      (unless (eq auto-modal-pre-is-control-p
+                  (auto-modal-is-triggerp))
+        (auto-modal-key-hint)))))
 
 (defun auto-modal-key-command (key-name)
   "Return command according to KEY-NAME and current major mode."
@@ -323,20 +369,42 @@ turning `auto-modal-mode' on and off."
   (unless (or (functionp predicate) (eq predicate t))
     (error "%S is not a predicate function!" predicate)))
 
+(defun auto-modal-record-log (key command)
+  (with-current-buffer (get-buffer-create "*Auto-modal-log*")
+    (let ((inhibit-read-only 1))
+      (save-excursion
+        (goto-char (point-max))
+        (setq auto-modal-log-num (line-number-at-pos))
+        (when (= auto-modal-log-num auto-modal-log-max-number)
+          (delete-line) (delete-char -1)))
+      (goto-char (point-min))
+      (if (looking-at "^$")
+          (insert (format "%s %s" key command))
+        (add-text-properties (line-beginning-position)
+                             (line-end-position)
+                             '(face shadow))
+        (insert (format "%s %s\n" key command)))
+      (read-only-mode 1))))
+
 (defmacro auto-modal-key-bind (key-name)
   "Bind key KEY-NAME to `suppress-key-mode-map' if KEY-NAME
 is not in `auto-modal-data'."
   (unless (auto-modal-has-key-p key-name)
-    `(bind-key ,key-name
-               (lambda ()
-                 (interactive)
-                 (if-let ((func-args (auto-modal-key-command ,key-name)))
-                     (progn
-                       (if (commandp (car func-args))
-                           (call-interactively (car func-args))
-                         (apply func-args)))
-                   (user-error "%s is undifined" ,key-name)))
-               'suppress-key-mode-map)))
+    `(bind-key
+      ,key-name
+      (lambda ()
+        (interactive)
+        (if-let ((func-args (auto-modal-key-command ,key-name)))
+            (progn
+              (if (= (length func-args) 1)
+                  (if (commandp (car func-args))
+                      (call-interactively (car func-args))
+                    (apply func-args))
+                (apply func-args))
+              (when auto-modal-enable-log
+                (auto-modal-record-log ,key-name func-args)))
+          (message "auto-modal-log: %s is undifined" ,key-name)))
+      'suppress-key-mode-map)))
 
 (defmacro auto-modal-key-unbind (key-name)
   "Unbind key KEY-NAME from `suppress-key-mode-map' if KEY-NAME
@@ -412,6 +480,7 @@ when `auto-modal-mode' turns off."
   (if auto-modal-mode
       (progn
         (auto-modal-bind-all-keys)
+        (add-hook 'pre-command-hook 'auto-modal-pre-command-function)
         (add-hook 'post-command-hook 'auto-modal-post-command-function)
         (add-hook 'window-configuration-change-hook
                   'auto-modal-set-cursor-all-wins)
@@ -421,6 +490,7 @@ when `auto-modal-mode' turns off."
     (set-cursor-color auto-modal-default-cursor-color)
     (suppress-key-mode -1)
     (auto-modal-unbind-all-keys)
+    (remove-hook 'pre-command-hook 'auto-modal-pre-command-function)
     (remove-hook 'post-command-hook 'auto-modal-post-command-function)
     (remove-hook 'window-configuration-change-hook
                  'auto-modal-set-cursor-all-wins)
