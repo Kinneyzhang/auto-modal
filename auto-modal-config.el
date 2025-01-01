@@ -59,21 +59,28 @@ is the predicate function."
     ("w" forward-word)
     ("b" backward-word)))
 
+(defvar auto-modal-vi-insert-flag nil
+  "When `auto-modal-vi-insert-flag' is nil,
+it's in vi normal mode. Otherwise, it's in
+vi insert mode.")
+
 (defun auto-modal-vi-pred () t)
 
 (defun auto-modal-vi-normal-mode ()
+  (setq auto-modal-vi-insert-flag nil)
   (dolist (keybind auto-modal-vi-keybinds)
     (apply 'auto-modal-bind-key
            (car keybind) 'global 'auto-modal-vi-pred (cdr keybind))))
 
 (defun auto-modal-vi-insert-mode ()
+  (setq auto-modal-vi-insert-flag t)
   (auto-modal-unbind-with-predicate 'auto-modal-vi-pred))
 
 (defun auto-modal-vi-mode-toogle ()
   (interactive)
-  (if auto-modal-vi-mode
-      (auto-modal-vi-insert-mode)
-    (auto-modal-vi-normal-mode)))
+  (if auto-modal-vi-insert-flag
+      (auto-modal-vi-normal-mode)
+    (auto-modal-vi-insert-mode)))
 
 (defvar auto-modal-vi-keymap
   (let ((map (make-sparse-keymap)))
