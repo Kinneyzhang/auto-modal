@@ -269,13 +269,14 @@ the cdr of it in dark theme."
                       (auto-modal-functions-data mode))))
 
 (defun auto-modal-key-hint ()
-  (minibuffer-message
-   (mapconcat (lambda (data)
-                (format "%s → %S "
-                        (propertize (car data) 'face 'bold)
-                        (cadr data)))
-              (auto-modal-trigger-functions)
-              " ")))
+  (let ((minibuffer-message-timeout nil))
+    (minibuffer-message
+     (mapconcat (lambda (data)
+                  (format "%s → %S "
+                          (propertize (car data) 'face 'bold)
+                          (cadr data)))
+                (auto-modal-trigger-functions)
+                " "))))
 
 (defun auto-modal-is-triggerp ()
   "Determine whether the conditions for triggering the modal
