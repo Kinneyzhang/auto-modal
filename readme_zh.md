@@ -39,10 +39,20 @@ auto-modal 是一个高度可定制化的模态自动切换系统，用户可能
 当选中 region 时，设置一些字母按键操作选中的文本或执行其他命令
 
 ```emacs-lisp
+(defun auto-modal-set-cursor-when-idle ()
+  "Set cursor type correctly in current buffer
+after idle time. It's useful when `use-region-p'
+is the predicate function."
+  (interactive)
+  (when (use-region-p)
+    (run-with-idle-timer 0.1 nil 'auto-modal-set-cursor)))
+
+;; delay update cursor-type when use-region-p
+(add-hook 'post-command-hook 'auto-modal-set-cursor-when-idle)
+
 (auto-modal-bind-key "u" 'global 'use-region-p 'upcase-dwim)
 (auto-modal-bind-key "d" 'global 'use-region-p 'downcase-dwim)
 (auto-modal-bind-key "c" 'global 'use-region-p 'kill-ring-save)
-;; ......
 ```
 
 ## bolp

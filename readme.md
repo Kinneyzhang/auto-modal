@@ -39,10 +39,20 @@ Auto-modal is a highly customizable modal auto-switching system. Users can perso
 When region is selected, set some letter keys to operate on the selected text or execute other commands
 
 ```emacs-lisp
-(auto-modal-bind-key “u” 'global 'use-region-p 'upcase-dwim)
-(auto-modal-bind-key “d” 'global 'use-region-p 'downcase-dwim)
-(auto-modal-bind-key “c” 'global 'use-region-p 'kill-ring-save)
-;; ......
+(defun auto-modal-set-cursor-when-idle ()
+  "Set cursor type correctly in current buffer
+after idle time. It's useful when `use-region-p'
+is the predicate function."
+  (interactive)
+  (when (use-region-p)
+    (run-with-idle-timer 0.1 nil 'auto-modal-set-cursor)))
+
+;; delay update cursor-type when use-region-p
+(add-hook 'post-command-hook 'auto-modal-set-cursor-when-idle)
+
+(auto-modal-bind-key "u" 'global 'use-region-p 'upcase-dwim)
+(auto-modal-bind-key "d" 'global 'use-region-p 'downcase-dwim)
+(auto-modal-bind-key "c" 'global 'use-region-p 'kill-ring-save)
 ```
 
 ## bolp
