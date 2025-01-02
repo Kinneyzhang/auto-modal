@@ -160,6 +160,9 @@ the cdr of it in dark theme.")
 (defvar auto-modal-enable-keyhint nil
   "Whether to enable show keyhint in minibuffer.")
 
+(defvar auto-modal-help-key "?"
+  "Default key name to prompt keybindings in echo area.")
+
 (cl-defstruct auto-modal-keybind
   "Core structure of auto-modal keybinding."
   key-name mode predicate function args)
@@ -268,7 +271,9 @@ the cdr of it in dark theme."
                             (funcall (cadr data))))
                       (auto-modal-functions-data mode))))
 
-(defun auto-modal-key-hint ()
+(defun auto-modal-keyhint-show ()
+  "Show keyhint message in echo area."
+  (interactive)
   (let ((minibuffer-message-timeout nil))
     (minibuffer-message
      (mapconcat (lambda (data)
@@ -330,7 +335,7 @@ turning `auto-modal-mode' on and off."
     (when auto-modal-enable-keyhint
       (unless (eq auto-modal-pre-is-control-p
                   (auto-modal-is-triggerp))
-        (auto-modal-key-hint)))))
+        (auto-modal-keyhint-show)))))
 
 (defun auto-modal-key-command (key-name)
   "Return command according to KEY-NAME and current major mode."
@@ -372,13 +377,13 @@ turning `auto-modal-mode' on and off."
 
 (defun auto-modal-record-log (key command)
   (with-current-buffer (get-buffer-create "*Auto-modal-log*")
+    (goto-char (point-min))
     (let ((inhibit-read-only 1))
       (save-excursion
         (goto-char (point-max))
         (setq auto-modal-log-num (line-number-at-pos))
         (when (= auto-modal-log-num auto-modal-log-max-number)
           (delete-line) (delete-char -1)))
-      (goto-char (point-min))
       (if (looking-at "^$")
           (insert (format "%s %s" key command))
         (add-text-properties (line-beginning-position)
@@ -413,21 +418,27 @@ is not in `auto-modal-data'."
   (unless (auto-modal-has-key-p key-name)
     `(unbind-key ,key-name 'suppress-key-mode-map)))
 
+;; 只要满足任何一个 predicate，就绑定到 ? 按键
+
 (defun auto-modal-bind-key (key-name mode predicate function &rest args)
   "Add one auto-modal keybind to `auto-modal-data'."
   ;; if there is no current key in data before adding, bind it.
-  (when (and auto-modal-mode
-             (not (member key-name (auto-modal-all-keys))))
-    ;; when `auto-modal-mode' is on，bind key at realtime.
-    (auto-modal-key-bind key-name))
-  (let ((mode (if (eq 'global mode) 'fundamental-mode mode)))
-    (auto-modal--validate mode predicate function)
-    (add-to-list 'auto-modal-data
-                 (make-auto-modal-keybind :key-name key-name
-                                          :mode mode
-                                          :predicate predicate
-                                          :function function
-                                          :args args))))
+  (if (string= key-name auto-modal-help-key)
+      (error "%s is binded to `auto-modal-keyhint-show' by default,\
+you should not bind it to other functions!"
+             auto-modal-help-key)
+    (when (and auto-modal-mode
+               (not (member key-name (auto-modal-all-keys))))
+      ;; when `auto-modal-mode' is on，bind key at realtime.
+      (auto-modal-key-bind key-name))
+    (let ((mode (if (eq 'global mode) 'fundamental-mode mode)))
+      (auto-modal--validate mode predicate function)
+      (add-to-list 'auto-modal-data
+                   (make-auto-modal-keybind :key-name key-name
+                                            :mode mode
+                                            :predicate predicate
+                                            :function function
+                                            :args args)))))
 
 (defun auto-modal-unbind-key (key-name mode predicate function &rest args)
   "Remove one auto-modal keybind from `auto-modal-data'."
@@ -460,15 +471,33 @@ is not in `auto-modal-data'."
                           (auto-modal-keybind-key-name keybind))
                         auto-modal-data)))
 
+(defun auto-modal-bind-keyhint ()
+  "Bind keyhint function to `auto-modal-help-key'."
+  (bind-key auto-modal-help-key
+            (lambda ()
+              (interactive)
+              (when auto-modal-enable-log
+                (auto-modal-record-log auto-modal-help-key
+                                       (list 'auto-modal-keyhint-show)))
+              (when (auto-modal-is-triggerp)
+                (auto-modal-keyhint-show)))
+            'suppress-key-mode-map))
+
+(defun auto-modal-unbind-keyhint ()
+  "Unbind keyhint function to `auto-modal-help-key'."
+  (unbind-key auto-modal-help-key 'suppress-key-mode-map))
+
 (defun auto-modal-bind-all-keys ()
   "Bind all keys in `auto-modal-data' to `suppress-key-mode-map'
 when `auto-modal-mode' turns on."
+  (auto-modal-bind-keyhint)
   (dolist (key-name (auto-modal-all-keys))
     (auto-modal-key-bind key-name)))
 
 (defun auto-modal-unbind-all-keys ()
   "Unbind all keys in `auto-modal-data' to `suppress-key-mode-map'
 when `auto-modal-mode' turns off."
+  (auto-modal-unbind-keyhint)
   (dolist (key-name (auto-modal-all-keys))
     (auto-modal-key-unbind key-name)))
 
