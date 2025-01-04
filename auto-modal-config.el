@@ -1,3 +1,6 @@
+
+
+
 (require 'auto-modal)
 
 ;;; selection
@@ -101,33 +104,144 @@ vi insert mode.")
 ;;; sexp-mode
 
 (defun sexp-left-paren-p ()
-  (let ((state (syntax-ppss)))
-    (and (char-equal (char-after) ?\()
-         ;; not in string
-         (not (nth 3 state))
-         ;; not in comment
-         (not (nth 4 state)))))
+  "Judge if the char after cursor is
+a left parenthesis of S expression."
+  (and-let* ((char (char-after))
+             ((char-equal char ?\())
+             (state (syntax-ppss))
+             ((not (nth 3 state)))
+             ((not (nth 4 state))))
+    (nth 0 state)))
 
 (defun sexp-right-paren-p ()
-  (let ((state (syntax-ppss)))
-    (and (char-equal (char-after) ?\))
-         ;; not in string
-         (not (nth 3 state))
-         ;; not in comment
-         (not (nth 4 state)))))
+  "Judge if the char before cursor is
+a right parenthesis of S expression."
+  (and-let* ((char (char-before))
+             ((char-equal char ?\)))
+             (state (save-excursion
+                      (syntax-ppss (1- (point)))))
+             ((not (nth 3 state)))
+             ((not (nth 4 state))))
+    (1- (nth 0 state))))
 
-(defun sexp-next ()
-  (let ((depth (nth 0 (syntax-ppss))))
-    (forward-char 1)
-    (catch 'return
-      (while t
-        (let ((state (syntax-ppss)))
-          (if (and (eq depth (nth 0 state))
-                   (not (nth 3 state)) ; 不在字符串中
-                   (not (nth 4 state)) ; 不在注释中
-                   (char-equal (char-after) ?\())
-              (throw 'return (point))
-            (forward-char 1)))))))
+(defun sexp-around-paren-p ()
+  (or (sexp-left-paren-p) (sexp-right-paren-p)))
 
+(defun sexp--left-or-right ()
+  (cond ((sexp-left-paren-p) (cons 'sexp-left-paren-p "("))
+        ((sexp-right-paren-p) (cons 'sexp-right-paren-p ")"))))
+
+(defun sexp--forward (&optional backwardp)
+  (let* ((search-func (if backwardp
+                          're-search-backward
+                        're-search-forward))
+         (left-or-right (sexp--left-or-right))
+         (func (car left-or-right))
+         (char (cdr left-or-right))
+         (pos (point)))
+    (goto-char
+     (save-excursion
+       (catch 'return
+         (while (funcall search-func char nil t)
+           (when-let* ((lr-pos (if (eq func 'sexp-left-paren-p)
+                                   (match-beginning 0)
+                                 (match-end 0)))
+                       ((not (= lr-pos pos)))
+                       ((save-excursion
+                          (goto-char lr-pos)
+                          (funcall func))))
+             (throw 'return lr-pos)))
+         pos)))))
+
+(defun sexp-forward ()
+  (sexp--forward))
+
+(defun sexp-backward ()
+  (sexp--forward t))
+
+(defun sexp-balance ()
+  (if (sexp-left-paren-p)
+      (forward-sexp)
+    (backward-sexp)))
+
+(defun sexp--down (&optional backwardp)
+  (let* ((search-func (if backwardp
+                          're-search-backward
+                        're-search-forward))
+         (left-or-right (sexp--left-or-right))
+         (func (car left-or-right))
+         (char (cdr left-or-right))
+         (curr-pos (point))
+         (curr-depth (funcall func)))
+    (goto-char
+     (save-excursion
+       (catch 'return
+         (while (funcall search-func char nil t)
+           (when-let* ((lr-pos (if (eq func 'sexp-left-paren-p)
+                                   (match-beginning 0)
+                                 (match-end 0)))
+                       (depth (save-excursion
+                                (goto-char lr-pos)
+                                (funcall func))))
+             (if (< depth curr-depth)
+                 (throw 'return curr-pos)
+               (when (and (not (= lr-pos curr-pos))
+                          (= depth curr-depth))
+                 (throw 'return lr-pos)))))
+         curr-pos)))))
+
+(defun sexp-down ()
+  (sexp--down))
+
+(defun sexp-up ()
+  (sexp--down t))
+
+(defun sexp--into (&optional backwardp)
+  (let* ((search-func (if backwardp
+                          're-search-backward
+                        're-search-forward))
+         (left-or-right (sexp--left-or-right))
+         (func (car left-or-right))
+         (char (cdr left-or-right))
+         (curr-pos (point))
+         (curr-depth (funcall func)))
+    (goto-char
+     (save-excursion
+       (catch 'return
+         (while (funcall search-func char nil t)
+           (when-let* ((lr-pos (if (eq func 'sexp-left-paren-p)
+                                   (match-beginning 0)
+                                 (match-end 0)))
+                       (depth (save-excursion
+                                (goto-char lr-pos)
+                                (funcall func))))
+             (if backwardp
+                 (when (and (not (= lr-pos curr-pos))
+                            (< depth curr-depth))
+                   (throw 'return lr-pos))
+               ;; (if (> depth curr-depth)
+               ;;     (throw 'return curr-pos)
+               ;;   )
+               (if (< depth curr-depth)
+                   (throw 'return curr-pos)
+                 (when (and (not (= lr-pos curr-pos))
+                            (> depth curr-depth))
+                   (throw 'return lr-pos))))))
+         curr-pos)))))
+
+(defun sexp-into ()
+  (sexp--into))
+
+(defun sexp-outside ()
+  (sexp--into t))
+
+(auto-modal-bind-key "SPC" 'emacs-lisp-mode 'sexp-left-paren-p 'auto-modal-enable-insert)
+(auto-modal-bind-key "s" 'emacs-lisp-mode 'sexp-around-paren-p 'sexp-balance)
+(auto-modal-bind-key "f" 'emacs-lisp-mode 'sexp-around-paren-p 'sexp-forward)
+(auto-modal-bind-key "b" 'emacs-lisp-mode 'sexp-around-paren-p 'sexp-backward)
+(auto-modal-bind-key "j" 'emacs-lisp-mode 'sexp-around-paren-p 'sexp-down)
+(auto-modal-bind-key "k" 'emacs-lisp-mode 'sexp-around-paren-p 'sexp-up)
+(auto-modal-bind-key "i" 'emacs-lisp-mode 'sexp-around-paren-p 'sexp-into)
+(auto-modal-bind-key "o" 'emacs-lisp-mode 'sexp-around-paren-p 'sexp-outside)
 
 (provide 'auto-modal-config)

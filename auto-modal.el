@@ -418,8 +418,6 @@ is not in `auto-modal-data'."
   (unless (auto-modal-has-key-p key-name)
     `(unbind-key ,key-name 'suppress-key-mode-map)))
 
-;; 只要满足任何一个 predicate，就绑定到 ? 按键
-
 (defun auto-modal-bind-key (key-name mode predicate function &rest args)
   "Add one auto-modal keybind to `auto-modal-data'."
   ;; if there is no current key in data before adding, bind it.
