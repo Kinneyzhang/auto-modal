@@ -50,6 +50,7 @@ is the predicate function."
 (auto-modal-bind-key "f" 'global 'auto-modal-bolp 'counsel-find-file)
 (auto-modal-bind-key "<" 'global 'auto-modal-bolp 'backward-page)
 (auto-modal-bind-key ">" 'global 'auto-modal-bolp 'forward-page)
+(auto-modal-bind-key "z" 'global 'auto-modal-bolp 'read-only-mode)
 
 ;;; vi-mode
 
@@ -57,7 +58,6 @@ is the predicate function."
   '(("i" auto-modal-vi-insert-mode)
     ("j" next-line)
     ("k" previous-line)
-    ("z" forward-line 2)
     ("h" backward-char)
     ("l" forward-char)
     ("w" forward-word)
