@@ -100,30 +100,34 @@ vi insert mode.")
 
 ;;; sexp-mode
 
-;; (defun auto-modal-before-parensp ()
-;;   (looking-at "("))
+(defun sexp-left-paren-p ()
+  (let ((state (syntax-ppss)))
+    (and (char-equal (char-after) ?\()
+         ;; not in string
+         (not (nth 3 state))
+         ;; not in comment
+         (not (nth 4 state)))))
 
-;; (defun auto-modal-next-function ()
-;;   (when (save-excursion
-;;           (re-search-forward "^(defun.+" nil t))
-;;     (goto-char (match-beginning 0))))
+(defun sexp-right-paren-p ()
+  (let ((state (syntax-ppss)))
+    (and (char-equal (char-after) ?\))
+         ;; not in string
+         (not (nth 3 state))
+         ;; not in comment
+         (not (nth 4 state)))))
 
-;; (defun sexp-into ()
-;;   "Go to the inner sexp."
-;;   (when (re-search-forward "(" nil t)
-;;     ))
+(defun sexp-next ()
+  (let ((depth (nth 0 (syntax-ppss))))
+    (forward-char 1)
+    (catch 'return
+      (while t
+        (let ((state (syntax-ppss)))
+          (if (and (eq depth (nth 0 state))
+                   (not (nth 3 state)) ; 不在字符串中
+                   (not (nth 4 state)) ; 不在注释中
+                   (char-equal (char-after) ?\())
+              (throw 'return (point))
+            (forward-char 1)))))))
 
-;; (defun sexp-out ()
-;;   "Go outside of current sexp.")
-
-;; (defun sexp-next ()
-;;   "Go to the next sexp in the same level."
-;;   )
-
-;; (defun sexp-previous ()
-;;   "Go to the previous sexp in the same level.")
-
-;; (defun sexp-end ()
-;;   "Go to the end of a sexp.")
 
 (provide 'auto-modal-config)
