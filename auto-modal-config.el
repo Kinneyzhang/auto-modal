@@ -1,6 +1,3 @@
-
-
-
 (require 'auto-modal)
 
 ;;; selection
@@ -50,6 +47,7 @@ is the predicate function."
 (auto-modal-bind-key "f" 'global 'auto-modal-bolp 'counsel-find-file)
 (auto-modal-bind-key "<" 'global 'auto-modal-bolp 'backward-page)
 (auto-modal-bind-key ">" 'global 'auto-modal-bolp 'forward-page)
+(auto-modal-bind-key "v" 'global 'auto-modal-bolp 'set-mark-command)
 (auto-modal-bind-key "z" 'global 'auto-modal-bolp 'read-only-mode)
 
 ;;; vi-mode
@@ -219,9 +217,6 @@ a right parenthesis of S expression."
                  (when (and (not (= lr-pos curr-pos))
                             (< depth curr-depth))
                    (throw 'return lr-pos))
-               ;; (if (> depth curr-depth)
-               ;;     (throw 'return curr-pos)
-               ;;   )
                (if (< depth curr-depth)
                    (throw 'return curr-pos)
                  (when (and (not (= lr-pos curr-pos))
@@ -235,7 +230,20 @@ a right parenthesis of S expression."
 (defun sexp-outside ()
   (sexp--into t))
 
-(auto-modal-bind-key "SPC" 'emacs-lisp-mode 'sexp-left-paren-p 'auto-modal-enable-insert)
+(defun sexp-newline-paren ()
+  (if (sexp-left-paren-p)
+      (progn
+        (insert "()")
+        (backward-char 1)
+        (save-excursion
+          (forward-char 1)
+          (newline-and-indent)))
+    (newline-and-indent)
+    (insert "()")
+    (backward-char 1)))
+
+(auto-modal-bind-key "n" 'emacs-lisp-mode 'sexp-around-paren-p 'sexp-newline-paren)
+(auto-modal-bind-key "SPC" 'emacs-lisp-mode 'sexp-around-paren-p 'auto-modal-enable-insert)
 (auto-modal-bind-key "s" 'emacs-lisp-mode 'sexp-around-paren-p 'sexp-balance)
 (auto-modal-bind-key "f" 'emacs-lisp-mode 'sexp-around-paren-p 'sexp-forward)
 (auto-modal-bind-key "b" 'emacs-lisp-mode 'sexp-around-paren-p 'sexp-backward)
