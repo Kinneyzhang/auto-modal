@@ -44,7 +44,6 @@ is the predicate function."
 (auto-modal-bind-key "o" 'global 'auto-modal-bolp 'other-window 1)
 (auto-modal-bind-key "k" 'global 'auto-modal-bolp 'auto-modal-previous-line)
 (auto-modal-bind-key "SPC" 'global 'auto-modal-bolp 'auto-modal-enable-insert)
-(auto-modal-bind-key "f" 'global 'auto-modal-bolp 'counsel-find-file)
 (auto-modal-bind-key "<" 'global 'auto-modal-bolp 'backward-page)
 (auto-modal-bind-key ">" 'global 'auto-modal-bolp 'forward-page)
 (auto-modal-bind-key "v" 'global 'auto-modal-bolp 'set-mark-command)

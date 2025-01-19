@@ -180,6 +180,7 @@ the cdr of it in dark theme.")
 use `auto-modal-default-cursor-type', otherwise use TYPE."
   (if (eq 'default type)
       (auto-modal-default-cursor-type)
+    
     type))
 
 (defun auto-modal-should-cursor-color (color)
@@ -392,6 +393,10 @@ turning `auto-modal-mode' on and off."
         (insert (format "%s %s\n" key command)))
       (read-only-mode 1))))
 
+(defun auto-modal-original-command (key)
+  (or (lookup-key (current-local-map) (kbd key))
+      (lookup-key global-map (kbd key))))
+
 (defmacro auto-modal-key-bind (key-name)
   "Bind key KEY-NAME to `suppress-key-mode-map' if KEY-NAME
 is not in `auto-modal-data'."
@@ -409,7 +414,10 @@ is not in `auto-modal-data'."
                 (apply func-args))
               (when auto-modal-enable-log
                 (auto-modal-record-log ,key-name func-args)))
-          (message "auto-modal-log: %s is undifined" ,key-name)))
+          (if-let* ((command (auto-modal-original-command ,key-name))
+                    ((commandp command)))
+              (call-interactively command)
+            (message "auto-modal-log: %s is undifined" ,key-name))))
       'suppress-key-mode-map)))
 
 (defmacro auto-modal-key-unbind (key-name)
