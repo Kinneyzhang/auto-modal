@@ -369,8 +369,8 @@ turning `auto-modal-mode' on and off."
 
 (defun auto-modal--validate (mode predicate function)
   "Validate MODE, PREDICATE and FUNCTION."
-  (unless (fboundp mode)
-    (error "%S is not a major mode!" mode))
+  ;; (unless (fboundp mode)
+  ;;   (error "%S is not a major mode!" mode))
   (unless (functionp function)
     (error "%S is not a function!" function))
   (unless (or (functionp predicate) (eq predicate t))
