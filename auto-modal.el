@@ -405,19 +405,21 @@ is not in `auto-modal-data'."
       ,key-name
       (lambda ()
         (interactive)
-        (if-let ((func-args (auto-modal-key-command ,key-name)))
-            (progn
-              (if (= (length func-args) 1)
-                  (if (commandp (car func-args))
-                      (call-interactively (car func-args))
-                    (apply func-args))
-                (apply func-args))
-              (when auto-modal-enable-log
-                (auto-modal-record-log ,key-name func-args)))
-          (if-let* ((command (auto-modal-original-command ,key-name))
-                    ((commandp command)))
-              (call-interactively command)
-            (message "auto-modal-log: %s is undifined" ,key-name))))
+        (if-let ((command (lookup-key (current-local-map) (kbd ,key-name))))
+            (call-interactively command)
+          (if-let ((func-args (auto-modal-key-command ,key-name)))
+              (progn
+                (if (= (length func-args) 1)
+                    (if (commandp (car func-args))
+                        (call-interactively (car func-args))
+                      (apply func-args))
+                  (apply func-args))
+                (when auto-modal-enable-log
+                  (auto-modal-record-log ,key-name func-args)))
+            (if-let* ((command (auto-modal-original-command ,key-name))
+                      (_ (commandp command)))
+                (call-interactively command)
+              (message "auto-modal-log: %s is undifined" ,key-name)))))
       'suppress-key-mode-map)))
 
 (defmacro auto-modal-key-unbind (key-name)
