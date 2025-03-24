@@ -165,7 +165,7 @@ the cdr of it in dark theme.")
 
 (cl-defstruct auto-modal-keybind
   "Core structure of auto-modal keybinding."
-  key-name mode predicate function args)
+  key-name mode predicate function args override-p)
 
 (defun auto-modal-current-cursor-type ()
   "Get current cursor type."
@@ -397,7 +397,7 @@ turning `auto-modal-mode' on and off."
   (or (lookup-key (current-local-map) (kbd key))
       (lookup-key global-map (kbd key))))
 
-(defmacro auto-modal-key-bind (key-name)
+(defmacro auto-modal-key-bind (key-name &optional override-p)
   "Bind key KEY-NAME to `suppress-key-mode-map' if KEY-NAME
 is not in `auto-modal-data'."
   (unless (auto-modal-has-key-p key-name)
@@ -405,7 +405,8 @@ is not in `auto-modal-data'."
       ,key-name
       (lambda ()
         (interactive)
-        (if-let ((command (lookup-key (current-local-map) (kbd ,key-name))))
+        (if-let ((command (and (not ,override-p)
+                               (lookup-key (current-local-map) (kbd ,key-name)))))
             (call-interactively command)
           (if-let ((func-args (auto-modal-key-command ,key-name)))
               (progn
@@ -428,7 +429,7 @@ is not in `auto-modal-data'."
   (unless (auto-modal-has-key-p key-name)
     `(unbind-key ,key-name 'suppress-key-mode-map)))
 
-(defun auto-modal-bind-key (key-name mode predicate function &rest args)
+(defun auto-modal-bind-key (key-name mode predicate function-args &optional override-p)
   "Add one auto-modal keybind to `auto-modal-data'."
   ;; if there is no current key in data before adding, bind it.
   (if (string= key-name auto-modal-help-key)
@@ -438,26 +439,42 @@ you should not bind it to other functions!"
     (when (and auto-modal-mode
                (not (member key-name (auto-modal-all-keys))))
       ;; when `auto-modal-mode' is on，bind key at realtime.
-      (auto-modal-key-bind key-name))
-    (let ((mode (if (eq 'global mode) 'fundamental-mode mode)))
+      (auto-modal-key-bind key-name override-p))
+    (let* ((mode (if (eq 'global mode) 'fundamental-mode mode))
+           function args)
+      (cond
+       ((symbolp function-args)
+        (setq function function-args))
+       ((consp function-args)
+        (setq function (car function-args))
+        (setq args (cdr function-args))))
       (auto-modal--validate mode predicate function)
       (add-to-list 'auto-modal-data
                    (make-auto-modal-keybind :key-name key-name
                                             :mode mode
                                             :predicate predicate
                                             :function function
-                                            :args args)))))
+                                            :args args
+                                            :override-p override-p)))))
 
-(defun auto-modal-unbind-key (key-name mode predicate function &rest args)
+(defun auto-modal-unbind-key (key-name mode predicate function-args &optional override-p)
   "Remove one auto-modal keybind from `auto-modal-data'."
-  (let ((mode (if (eq 'global mode) 'fundamental-mode mode)))
+  (let ((mode (if (eq 'global mode) 'fundamental-mode mode))
+        function args)
     (auto-modal--validate mode predicate function)
+    (cond
+     ((symbolp function-args)
+      (setq function function-args))
+     ((consp function-args)
+      (setq function (car function-args))
+      (setq args (cdr function-args))))
     (setq auto-modal-data
           (remove (make-auto-modal-keybind :key-name key-name
                                            :mode mode
                                            :predicate predicate
                                            :function function
-                                           :args args)
+                                           :args args
+                                           :override-p override-p)
                   auto-modal-data))
     ;; if there is no current key in data after removing, unbind it.
     (when (and auto-modal-mode
@@ -478,6 +495,12 @@ you should not bind it to other functions!"
   (delete-dups (seq-map (lambda (keybind)
                           (auto-modal-keybind-key-name keybind))
                         auto-modal-data)))
+
+(defun auto-modal-key-override-status (key)
+  (auto-modal-keybind-override-p
+   (seq-find (lambda (keybind)
+               (string= key (auto-modal-keybind-key-name keybind)))
+             auto-modal-data)))
 
 (defun auto-modal-bind-keyhint ()
   "Bind keyhint function to `auto-modal-help-key'."
@@ -500,7 +523,9 @@ you should not bind it to other functions!"
 when `auto-modal-mode' turns on."
   (auto-modal-bind-keyhint)
   (dolist (key-name (auto-modal-all-keys))
-    (auto-modal-key-bind key-name)))
+    (auto-modal-key-bind
+     key-name
+     (auto-modal-key-override-status key-name))))
 
 (defun auto-modal-unbind-all-keys ()
   "Unbind all keys in `auto-modal-data' to `suppress-key-mode-map'

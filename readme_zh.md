@@ -84,7 +84,7 @@ is the predicate function."
 (auto-modal-bind-key "l" 'global 'auto-modal-bolp 'avy-goto-line)
 (auto-modal-bind-key "c" 'global 'auto-modal-bolp 'avy-goto-char-timer)
 (auto-modal-bind-key "j" 'global 'auto-modal-bolp 'auto-modal-next-line)
-(auto-modal-bind-key "o" 'global 'auto-modal-bolp 'other-window 1)
+(auto-modal-bind-key "o" 'global 'auto-modal-bolp '(other-window 1))
 (auto-modal-bind-key "k" 'global 'auto-modal-bolp 'auto-modal-previous-line)
 (auto-modal-bind-key "SPC" 'global 'auto-modal-bolp 'auto-modal-enable-insert)
 (auto-modal-bind-key "f" 'global 'auto-modal-bolp 'counsel-find-file)
