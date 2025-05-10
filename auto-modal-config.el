@@ -24,7 +24,10 @@ is the predicate function."
 
 (defun auto-modal-next-line ()
   (interactive)
-  (forward-line 1)
+  ;; do not goto the end line.
+  (unless (save-excursion (forward-line 1)
+                          (= (point) (point-max)))
+    (forward-line 1))
   (goto-char (line-beginning-position))
   (while (and (not (= (point) (point-max)))
               (looking-at "^$"))
