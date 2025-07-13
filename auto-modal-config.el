@@ -1,56 +1,73 @@
 (require 'auto-modal)
+(require 'auto-modal-presets)
 
-;;; selection
+;;; Enhanced Configuration Example
 
-(defun auto-modal-set-cursor-when-idle ()
-  "Set cursor type correctly in current buffer
-after idle time. It's useful when `use-region-p'
-is the predicate function."
+;; Basic setup with programming focus
+(auto-modal-setup-programming)
+
+;; Additional customizations
+(setq auto-modal-enable-log t)
+(setq auto-modal-enable-keyhint t)
+
+;; Cursor customization
+(setq auto-modal-control-cursor-type 'box)
+(setq auto-modal-insert-cursor-type 'bar)
+(setq auto-modal-control-cursor-color '("red" . "orange"))
+(setq auto-modal-insert-cursor-color '("blue" . "cyan"))
+
+;;; Enhanced Navigation Functions
+
+(defun auto-modal-smart-next-line ()
+  "Smart next line navigation that skips comments and empty lines."
   (interactive)
+  (forward-line 1)
+  (while (and (not (eobp))
+              (or (looking-at "^[[:space:]]*$")
+                  (looking-at "^[[:space:]]*[#;]")))
+    (forward-line 1))
+  (back-to-indentation))
+
+(defun auto-modal-smart-previous-line ()
+  "Smart previous line navigation that skips comments and empty lines."
+  (interactive)
+  (forward-line -1)
+  (while (and (not (bobp))
+              (or (looking-at "^[[:space:]]*$")
+                  (looking-at "^[[:space:]]*[#;]")))
+    (forward-line -1))
+  (back-to-indentation))
+
+;; Enhanced navigation bindings
+(auto-modal-bind-key "J" 'global 'auto-modal-bolp 'auto-modal-smart-next-line)
+(auto-modal-bind-key "K" 'global 'auto-modal-bolp 'auto-modal-smart-previous-line)
+
+;;; Project Management Integration
+
+(when (fboundp 'project-find-file)
+  (auto-modal-bind-key "F" 'global 'auto-modal-bolp 'project-find-file))
+
+(when (fboundp 'project-switch-project)
+  (auto-modal-bind-key "P" 'global 'auto-modal-bolp 'project-switch-project))
+
+;;; Git Integration
+
+(when (fboundp 'magit-status)
+  (auto-modal-bind-key "g" 'global 'auto-modal-bolp 'magit-status))
+
+;;; Enhanced Selection Operations
+
+(defun auto-modal-enhance-region-setup ()
+  "Enhanced region operations with idle cursor update."
   (when (use-region-p)
     (run-with-idle-timer 0.1 nil 'auto-modal-set-cursor)))
 
-;; delay update cursor-type when use-region-p
-(add-hook 'post-command-hook 'auto-modal-set-cursor-when-idle)
+(add-hook 'post-command-hook 'auto-modal-enhance-region-setup)
 
-(auto-modal-bind-key "u" 'global 'use-region-p 'upcase-dwim)
-(auto-modal-bind-key "d" 'global 'use-region-p 'downcase-dwim)
-(auto-modal-bind-key "c" 'global 'use-region-p 'kill-ring-save)
-
-;;; bol
-
-(defun auto-modal-bolp ()
-  (and (bolp) (not (looking-at "^$"))))
-
-(defun auto-modal-next-line ()
-  (interactive)
-  ;; do not goto the end line.
-  (unless (save-excursion (forward-line 1)
-                          (= (point) (point-max)))
-    (forward-line 1))
-  (goto-char (line-beginning-position))
-  (while (and (not (= (point) (point-max)))
-              (looking-at "^$"))
-    (auto-modal-next-line)))
-
-(defun auto-modal-previous-line ()
-  (interactive)
-  (forward-line -1)
-  (goto-char (line-beginning-position))
-  (while (and (not (= (point) (point-max)))
-              (looking-at "^$"))
-    (auto-modal-previous-line)))
-
-(auto-modal-bind-key "l" 'global 'auto-modal-bolp 'avy-goto-line)
-(auto-modal-bind-key "c" 'global 'auto-modal-bolp 'avy-goto-char-timer)
-(auto-modal-bind-key "j" 'global 'auto-modal-bolp 'auto-modal-next-line)
-(auto-modal-bind-key "o" 'global 'auto-modal-bolp '(other-window 1))
-(auto-modal-bind-key "k" 'global 'auto-modal-bolp 'auto-modal-previous-line)
-(auto-modal-bind-key "SPC" 'global 'auto-modal-bolp 'auto-modal-enable-insert)
-(auto-modal-bind-key "<" 'global 'auto-modal-bolp 'backward-page)
-(auto-modal-bind-key ">" 'global 'auto-modal-bolp 'forward-page)
-(auto-modal-bind-key "v" 'global 'auto-modal-bolp 'set-mark-command)
-(auto-modal-bind-key "z" 'global 'auto-modal-bolp 'read-only-mode)
+;; Enhanced selection bindings
+(auto-modal-bind-key "x" 'global 'use-region-p 'kill-region)
+(auto-modal-bind-key "y" 'global 'use-region-p 'kill-ring-save)
+(auto-modal-bind-key "p" 'global 'use-region-p 'yank)
 
 ;;; vi-mode
 
