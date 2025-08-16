@@ -90,7 +90,7 @@ in the advice function after the background-mode changed."
   "Make `suppress-key-mode-map' override all normally
  self-inserting keys to be undefined."
   :keymap suppress-key-mode-map
-  :global t
+  :global nil
   :interactive nil
   (when suppress-key-mode
     (suppress-keymap suppress-key-mode-map t)))
@@ -315,9 +315,10 @@ turning `auto-modal-mode' on and off."
   "Whether pre command is in control mode.")
 
 (defun auto-modal-pre-command-function ()
-  (if (auto-modal-is-triggerp)
-      (setq auto-modal-pre-is-control-p t)
-    (setq auto-modal-pre-is-control-p nil)))
+  (when auto-modal-mode
+    (if (auto-modal-is-triggerp)
+        (setq auto-modal-pre-is-control-p t)
+      (setq auto-modal-pre-is-control-p nil))))
 
 (defun auto-modal-post-command-function ()
   "Automatically switch modal after executing each command."
@@ -340,25 +341,27 @@ turning `auto-modal-mode' on and off."
 
 (defun auto-modal-key-command (key-name)
   "Return command according to KEY-NAME and current major mode."
-  (when-let* ((keybinds
-               (seq-filter
-                (lambda (keybind)
-                  (and (string= key-name
-                                (auto-modal-keybind-key-name keybind))
-                       (or (eq t (auto-modal-keybind-predicate keybind))
-                           (funcall (auto-modal-keybind-predicate keybind)))))
-                auto-modal-data))
-              (mode-levels
-               (seq-map (lambda (el)
-                          (major-mode-derived-p
-                           (auto-modal-keybind-mode el)))
-                        keybinds))
-              (mode-levels-without-nil (remove nil mode-levels))
-              (min-level (seq-min mode-levels-without-nil))
-              (i (seq-position mode-levels min-level))
-              ;; 取 major-mode 的继承关系离自己最近的
-              (keybind (nth i keybinds))
-              (func (auto-modal-keybind-function keybind)))
+  (when-let*
+      ((keybinds
+        (seq-filter
+         (lambda (keybind)
+           (and (string= key-name
+                         (auto-modal-keybind-key-name keybind))
+                (or (eq t (auto-modal-keybind-predicate keybind))
+                    (funcall (auto-modal-keybind-predicate
+                              keybind)))))
+         auto-modal-data))
+       (mode-levels
+        (seq-map (lambda (el)
+                   (major-mode-derived-p
+                    (auto-modal-keybind-mode el)))
+                 keybinds))
+       (mode-levels-without-nil (remove nil mode-levels))
+       (min-level (seq-min mode-levels-without-nil))
+       (i (seq-position mode-levels min-level))
+       ;; 取 major-mode 的继承关系离自己最近的
+       (keybind (nth i keybinds))
+       (func (auto-modal-keybind-function keybind)))
     (if-let ((args (auto-modal-keybind-args keybind)))
         `(,func ,@args)
       (list func))))
@@ -450,12 +453,13 @@ you should not bind it to other functions!"
         (setq args (cdr function-args))))
       (auto-modal--validate mode predicate function)
       (add-to-list 'auto-modal-data
-                   (make-auto-modal-keybind :key-name key-name
-                                            :mode mode
-                                            :predicate predicate
-                                            :function function
-                                            :args args
-                                            :override-p override-p)))))
+                   (make-auto-modal-keybind
+                    :key-name key-name
+                    :mode mode
+                    :predicate predicate
+                    :function function
+                    :args args
+                    :override-p override-p)))))
 
 (defun auto-modal-unbind-key (key-name mode predicate function-args &optional override-p)
   "Remove one auto-modal keybind from `auto-modal-data'."
@@ -508,8 +512,9 @@ you should not bind it to other functions!"
             (lambda ()
               (interactive)
               (when auto-modal-enable-log
-                (auto-modal-record-log auto-modal-help-key
-                                       (list 'auto-modal-keyhint-show)))
+                (auto-modal-record-log
+                 auto-modal-help-key
+                 (list 'auto-modal-keyhint-show)))
               (when (auto-modal-is-triggerp)
                 (auto-modal-keyhint-show)))
             'suppress-key-mode-map))
@@ -536,28 +541,58 @@ when `auto-modal-mode' turns off."
 
 ;;;###autoload
 (define-minor-mode auto-modal-mode
-  "Minor mode for switching modal automatically."
-  :global t
-  (auto-modal-set-cursor-all-wins)
-  ;; FIXME: cannot work properbly after emacs startup
+  "Minor mode for switching modal automatically in buffer."
+  :global nil
   (if auto-modal-mode
       (progn
+        (suppress-key-mode 1)
+        (auto-modal-set-cursor-all-wins)
         (auto-modal-bind-all-keys)
-        (add-hook 'pre-command-hook 'auto-modal-pre-command-function)
-        (add-hook 'post-command-hook 'auto-modal-post-command-function)
+        (add-hook 'pre-command-hook
+                  'auto-modal-pre-command-function t)
+        (add-hook 'post-command-hook
+                  'auto-modal-post-command-function t)
         (add-hook 'window-configuration-change-hook
-                  'auto-modal-set-cursor-all-wins)
+                  'auto-modal-set-cursor-all-wins t)
         (run-hooks 'auto-modal-turn-on-hook)
         (background-mode-change-setup))
     (setq-local cursor-type (auto-modal-default-cursor-type))
     (set-cursor-color auto-modal-default-cursor-color)
     (suppress-key-mode -1)
     (auto-modal-unbind-all-keys)
-    (remove-hook 'pre-command-hook 'auto-modal-pre-command-function)
-    (remove-hook 'post-command-hook 'auto-modal-post-command-function)
+    (remove-hook 'pre-command-hook
+                 'auto-modal-pre-command-function t)
+    (remove-hook 'post-command-hook
+                 'auto-modal-post-command-function t)
     (remove-hook 'window-configuration-change-hook
-                 'auto-modal-set-cursor-all-wins)
+                 'auto-modal-set-cursor-all-wins t)
     (run-hooks 'auto-modal-turn-off-hook)
     (background-mode-change-unset)))
+
+;;;###autoload
+(defun auto-modal-mode-turn-on ()
+  "Turn on auto-modal-mode in buffer when create a
+new buffer or change major mode in current buffer."
+  (interactive)
+  (auto-modal-mode 1))
+
+;;;###autoload
+(define-minor-mode global-auto-modal-mode
+  "Minor mode for switching modal automatically globally."
+  :global t
+  (if global-auto-modal-mode
+      (progn
+        (message "auto-modal-mode turned on globally")
+        (add-hook 'after-change-major-mode-hook
+                  #'auto-modal-mode-turn-on)
+        (dolist (buffer (buffer-list))
+          (with-current-buffer buffer
+            (auto-modal-mode 1))))
+    (message "auto-modal-mode turned off globally")
+    (remove-hook 'after-change-major-mode-hook
+                 #'auto-modal-mode-turn-on)
+    (dolist (buffer (buffer-list))
+      (with-current-buffer buffer
+        (auto-modal-mode -1)))))
 
 (provide 'auto-modal)
