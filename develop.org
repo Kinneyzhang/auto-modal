@@ -1,3 +1,23 @@
 * 功能开发/优化
 - [X] 设置内置按键'?'，不允许用户绑定，用于提示当前条件下所有已绑定的按键和命令
 - [X] 使用 auto-modal 绑定的单字母按键，不覆盖 major mode 原有的按键
+
+* v1.0.0 重构 (2026-07)
+内部完全重写，对外 API 不变。详见 CHANGELOG.md 与 README.md 的迁移指南。
+
+- [X] 修复字节编译失败（宏在运行时被当函数调用）与 emacs -Q 加载失败（缺少 require）
+- [X] 按键分发改为单一命令 auto-modal-dispatch + define-key，移除 bind-key 依赖
+- [X] 每命令只计算一次触发状态；mode 继承距离加缓存
+- [X] 修复 add-hook/remove-hook 参数不匹配导致的全局钩子泄漏；钩子随最后一个 buffer 关闭而移除
+- [X] override-p 改为真正的每绑定粒度
+- [X] 主题切换改用 enable-theme-functions，移除 load-theme advice
+- [X] global-auto-modal-mode 改用 define-globalized-minor-mode，跳过 minibuffer 和内部 buffer
+- [X] 命名空间清理：suppress-key-mode → auto-modal-control-mode，sexp-* → auto-modal-sexp-*
+- [X] 新增 auto-modal-unbind、auto-modal-list-keybinds
+- [X] defgroup + 全部 defcustom 补全 :type
+- [X] ERT 测试套件（39 个）、Makefile、GitHub Actions CI
+- [X] 重写中英文 README，新增 CHANGELOG
+
+* 待办
+- [ ] 光标颜色目前是 frame 级别的：多 frame 显示不同状态的 buffer 时，颜色跟随最后运行 post-command 的 frame
+- [ ] 考虑为 auto-modal-list-keybinds 增加删除/编辑操作
